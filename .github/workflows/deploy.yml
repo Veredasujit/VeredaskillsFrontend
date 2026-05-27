@@ -1,0 +1,53 @@
+name: Deploy Verdaskills Frontend
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Deploy to Server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: 22
+          script: |
+            echo "Starting deployment"
+
+            cd /root/vereda-ui-frontend
+
+            echo "Current directory:"
+            pwd
+
+            echo "Pulling latest changes"
+            git pull origin main
+
+            echo "Stopping existing containers"
+            docker compose down || true
+
+            echo "Building application"
+            docker compose build --no-cache
+
+            echo "Starting application"
+            docker compose up -d
+
+            echo "Container status"
+            docker ps --filter "name=verdaskills-frontend" \
+              --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+
+            echo "Recent application logs"
+            docker logs verdaskills-frontend --tail 30
+
+            echo "Removing unused images"
+            docker image prune -af
+
+            echo "Deployment completed successfully"
